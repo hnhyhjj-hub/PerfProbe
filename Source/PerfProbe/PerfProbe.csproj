@@ -1,0 +1,108 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    双目标框架：一次 dotnet build 同时产出 1.7 与 1.6 两个程序集。
+
+    1.7（net10.0）= 主目标，引用游戏目录里的 Assembly-CSharp / RimWorld / UnityStubs / Waylith。
+    1.6（net472） = 基础兼容，引用 Source\refs\1.6 下的 1.6 参考程序集。
+
+    1.6 那份是「能加载、不保证功能」的兼容层：39 个 patch 目标类型与十个帧阶段的
+    方法签名在 1.6 里都已核实存在，但本机没有 1.6 游戏可供实测，因此不作任何
+    功能承诺。About.xml 里已写明这一点。
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net472</TargetFrameworks>
+    <AssemblyName>PerfProbe</AssemblyName>
+    <RootNamespace>PerfProbe</RootNamespace>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DebugType>none</DebugType>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <NoWarn>CS0649;CS0169;CS0414</NoWarn>
+    <!-- .deps.json 只有 net10.0 需要，1.6 侧生成它会让老版本读不懂 -->
+    <GenerateDependencyFile Condition="'$(TargetFramework)' == 'net472'">false</GenerateDependencyFile>
+  </PropertyGroup>
+
+  <!-- 两个目标各自落到自己的版本目录，游戏按 LoadFolders 分支加载其一 -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <OutputPath>..\..\1.7\Assemblies\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net472'">
+    <OutputPath>..\..\1.6\Assemblies\</OutputPath>
+  </PropertyGroup>
+
+  <!--
+    四个引用路径。默认值按本机 Steam 库推导，但**每一项都可被环境变量或 -p: 覆盖**：
+    RimWorldDir / Harmony17Dir / Harmony16Dir / Ref16Dir。
+    换机器或换 Steam 库位置时改这四个，不要改下面 Reference 的 HintPath。
+  -->
+  <PropertyGroup>
+    <RimWorldDir Condition="'$(RimWorldDir)' == ''">E:\Program Files\steam\steamapps\common\RimWorld</RimWorldDir>
+    <!-- steamapps\common\RimWorld 往上两级即 steamapps，工坊内容不在 common 下面。
+         GetFullPath 把 ..\.. 规范化，HintPath 里不留相对段。 -->
+    <WorkshopRoot Condition="'$(WorkshopRoot)' == ''">$([System.IO.Path]::GetFullPath('$(RimWorldDir)\..\..\workshop\content\294100'))</WorkshopRoot>
+    <Harmony17Dir Condition="'$(Harmony17Dir)' == ''">$(WorkshopRoot)\2009463077\1.7\Assemblies</Harmony17Dir>
+    <Harmony16Dir Condition="'$(Harmony16Dir)' == ''">$(WorkshopRoot)\2009463077\1.6\Assemblies</Harmony16Dir>
+    <Ref16Dir Condition="'$(Ref16Dir)' == ''">$(MSBuildThisFileDirectory)..\refs\1.6</Ref16Dir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Compile Include="Core\*.cs" />
+    <Compile Include="Runtime\*.cs" />
+    <Compile Include="Attrib\*.cs" />
+    <Compile Include="Patches\*.cs" />
+    <Compile Include="Output\*.cs" />
+    <Compile Include="UI\*.cs" />
+  </ItemGroup>
+
+  <!-- ============ 1.7 / net10.0 ============ -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <Reference Include="0Harmony">
+      <HintPath>$(Harmony17Dir)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(RimWorldDir)\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RimWorld">
+      <HintPath>$(RimWorldDir)\RimWorld.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityStubs">
+      <HintPath>$(RimWorldDir)\UnityStubs.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Waylith">
+      <HintPath>$(RimWorldDir)\Waylith.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- ============ 1.6 / net472 ============ -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
+    <Reference Include="0Harmony">
+      <HintPath>$(Harmony16Dir)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(Ref16Dir)\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(Ref16Dir)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!--
+      FeedbackPack 用 ZipArchive 打包反馈包。1.6 的参考程序集里 System.IO.Compression
+      是 façade（类型转发到 4.0.0.0），必须显式补上真实实现程序集，否则报 CS1069。
+    -->
+    <Reference Include="System.IO.Compression">
+      <HintPath>$(Ref16Dir)\System.IO.Compression.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,20 @@
+# ---- 构建中间产物 ----
+Source/PerfProbe/obj/
+Source/PerfProbe/bin/
+*.user
+*.suo
+
+# ---- 不可再分发的参考程序集 ----
+# Ludeon 的游戏程序集不随仓库分发。编译 1.6 目标需要自备（见 docs/BUILD.md）。
+Source/refs/
+
+# ---- NuGet ----
+*.nupkg
+packages/
+
+# ---- 本机会话记忆 ----
+.dsh-project-memory/
+
+# ---- 本机临时/报告输出 ----
+*.log
+__*

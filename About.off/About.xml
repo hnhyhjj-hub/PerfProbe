@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>PerfProbe</name>
+  <author>楚舆</author>
+  <packageId>perfprobe.runtime</packageId>
+  <modVersion>1.4.0</modVersion>
+  <supportedVersions>
+    <li>1.7</li>
+    <li>1.6</li>
+  </supportedVersions>
+  <modDependencies>
+    <li>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+      <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
+    </li>
+  </modDependencies>
+  <loadAfter>
+    <li>brrainz.harmony</li>
+    <li>Ludeon.RimWorld</li>
+  </loadAfter>
+  <description>PerfProbe 是运行期性能探针。它回答两个问题：这个 tick 的耗时花在谁身上，以及帧率为什么上不去。
+
+输出的是给 AI 读的数据集 —— 采一轮，把文件丢给任何 AI，让它告诉你要动哪个 mod。
+
+
+════════ 版本支持 ════════
+
+1.7（Waylith）：完整支持。全部功能在 1.7 上实测过，包括帧率与帧阶段检测。
+
+1.6：基础兼容，不保证功能可用。
+· mod 带两个独立编译的版本，1.6 那份是针对 .NET Framework 4.7.2 与 1.6
+  参考程序集单独编译的，不是同一份二进制。
+· 所有 patch 目标、帧阶段钩子、TickManager / Root 的取数接口都已对着
+  1.6 参考程序集逐个核对，编译零错误 —— 但作者本机只有 1.7，没有在
+  1.6 游戏里实跑过，所以无法给出「能用」的承诺。
+· 已知风险面：Harmony 1.6 是 2.x、1.7 是 3.x，两者对注入参数的类型检查
+  严格程度不同；1.6 的渲染管线与 1.7 也不是同一套（1.6 是 Unity，1.7 是
+  Waylith 引擎）。这两处若有差异，最先出问题的是帧阶段那一组钩子和
+  「导出反馈包」按钮。
+· 若 1.6 下出现报错或数据异常，请直接停用本 mod，并把 Player.log 里的
+  报错贴到工坊讨论区 —— 你能提供的每一份 1.6 日志，都是把「基础兼容」
+  变成「确认可用」的唯一途径。
+
+
+════════ 三步开始 ════════
+
+1. 选项 → 模组设置 → PerfProbe，勾选「启用采集」。采样率 K 保持 1。
+2. 点「开始被动采集」，切回游戏正常游玩（建议极快 / 6 倍速）。
+3. 玩够 3-10 分钟后点「停止并输出汇总」，去数据目录取文件。
+
+首次使用建议先只开本 mod 跑一轮，摸清原版基线，再开其他 mod 对比。
+
+
+════════ 设置界面每个选项 ════════
+
+【启用采集】
+总开关。关闭时所有 patch 立即返回，对游戏零影响。
+
+【采集速度档】快进 3 倍 / 极快 6 倍 / 超快 15 倍
+只统计勾选的档位。
+· 极快（6 倍）—— 推荐只开这个。tick 吞吐最高，最接近真实性能压力。
+· 快进（3 倍）—— 想贴近实际游玩手感时开。
+· 超快（15 倍）—— 不推荐。一帧内塞入大量 tick，单 tick 均摊会被系统性低估。
+未勾选档位里的 tick 会计入 gapMs 缺口，报告里能看到漏统计了多少。
+
+【窗口长度】默认 5 秒，范围 1-30
+每个窗口落一行 jsonl 并重置窗口内累加。
+· 想抓瞬时尖峰（例如某座炮塔开火那一瞬）调到 1-2 秒。
+· 想看长期平均调到 15-30 秒。
+
+【抽样分母 K】默认 1（全量），范围 1-32
+每 K 个对象只精确计时 1 个。
+· K = 1 是全量，也是唯一能让各类占比横向比较的设置 —— 组件类不抽样、
+  其它类走 K 抽样，倍率不同会让跨类比较失真。
+· 只想定位「哪个类最贵」时保持 1。确认问题后想降探针开销可适当调大。
+
+【相位轮换】默认 32 刻，范围 8-128
+每这么多刻换一批被抽中的对象，保证长期覆盖全部对象。K = 1 时无作用。
+
+【保留会话数】默认 20，范围 1-200
+配合「自动清理旧会话」使用。超出后按时间从旧到新成组删除 jsonl / summary / brief。
+
+【输出目录】留空则用默认目录
+留空最省事。填了不可写的路径会自动回退到默认目录，并在 probe.log 打 Warning。
+
+【状态行】
+实时显示当前帧率。注意：设置面板打开期间游戏被强制暂停，帧率会比正常游玩时高，
+只适合看数量级与趋势，不能当基线。
+
+【两个按钮】
+开始 / 停止都即刻生效，不需要等下一个 tick。停止时才写 summary 与 brief，
+中途退出不会丢已有的 jsonl 行。
+
+
+════════ 数据在哪 ════════
+
+设置面板的「当前输出目录」一行会显示实际路径。默认：
+
+Windows
+  %USERPROFILE%\AppData\LocalLow\Ludeon Studios\RimWorld by Ludeon Studios\PerfProbe\
+
+macOS
+  ~/Library/Application Support/Ludeon Studios/RimWorld/PerfProbe/
+
+Linux
+  ~/.local/share/Ludeon Studios/RimWorld by Ludeon Studios/PerfProbe/
+
+它在存档数据目录下，与 Saves 平级，不在 Saves 里面。别去 Saves\PerfProbe\ 找。
+启动参数 -savedatafolder X 会整体改变这个根目录。
+
+每轮会话产出三个文件：
+  passive-&lt;日期&gt;-&lt;时间&gt;-sNN.brief.md     约 10 KB，给 AI 的精简版
+  passive-&lt;日期&gt;-&lt;时间&gt;-sNN.summary.md   约 40-170 KB，完整报告
+  passive-&lt;日期&gt;-&lt;时间&gt;-sNN.jsonl        1-3 MB，逐窗口原始记录
+
+外加三个常驻文件：
+  index.json            所有会话的汇总索引，每次会话结束重写
+  schema.md             字段口径，每个字段什么意思
+  AI-ANALYSIS-GUIDE.md  判读指南：怎么读、哪些数不能相加、常见误判
+
+后两个由模组在每次开始采集时自动放置，不需要去 mod 安装目录找。
+
+
+════════ 出问题时怎么反馈 ════════
+
+设置面板有个「导出反馈包」按钮，点一下会在同一目录生成
+PerfProbe-feedback-&lt;日期&gt;-&lt;时间&gt;.zip，并自动打开文件所在文件夹。
+
+包里已经收齐排查需要的全部东西，直接发出来就行：
+  · 最新一轮的 brief.md 与 summary.md
+  · index.json / schema.md / AI-ANALYSIS-GUIDE.md
+  · probe.log（探针自己的日志：挂了多少 patch、有没有失败）
+  · Player.log（已裁剪，只留加载期与前 400 行及所有报错行，4.7 MB 压到约 400 KB）
+  · ModsConfig.xml（完整 mod 列表与加载顺序）
+
+刻意不收的东西：
+  · 硬件信息（CPU / 显卡 / 内存）—— 导出时就不采集
+  · 路径里的用户名已替换成 &lt;用户名&gt;
+  包里附带的 README.txt 写清了每个文件的用途与怎么读。
+
+建议先点「停止并输出汇总」再点导出，否则包里只有 jsonl 没有 summary。
+
+
+════════ 该给 AI 传哪些文件 ════════
+
+按你用的 AI 形态挑，不要一上来就传 jsonl。
+
+【网页版 AI】ChatGPT / Claude / Gemini，可以上传文件
+传两个就够：brief.md + AI-ANALYSIS-GUIDE.md
+想让它算得更细，再补 summary.md。
+它做不了的事：反编译查「这个类内部为什么贵」（没有你本机的文件系统）。
+
+【纯对话 AI】只能粘贴文本
+粘贴 brief.md 全文。约 10 KB / 2500 token，任何对话框都放得下。
+
+【有本地文件访问权的 agent】Claude Code / Cursor / 各家 CLI
+让它直接读整个数据目录，从 index.json 入手。
+它能额外做的：按类名去反编译对应 dll，查「这个类内部为什么贵」。
+这一步只影响深挖根因，不影响定位瓶颈 —— 前几份文档已经能告诉你先动谁。
+
+【jsonl】
+只在需要逐窗口趋势时才给。它 1-3 MB / 近百万 token，
+绝大多数分析用不上，直接丢给 AI 只会烧光上下文。
+
+
+════════ 它能告诉你什么 ════════
+
+五类归因：建筑 / 物品 / 人物 / 地图组件 / 全局系统（另有 other 兜底），
+再按模组与具体 def 细分，能直接看出「一只机械体等于几只鸡」这种量级差。
+
+人物层拆三层，不混算：Pawn.Tick 主体 / Pawn.TickInterval / 外层其它。
+主体内部再分工作、寻路、状态、能力、装备、基因、渲染、思考、稀有等十一个方面。
+
+全局系统拆 17 项，其中 TickList 容器开销与 MapComponent 分开统计，
+避免把「地图组件干了什么」和「每 tick 遍历所有 thing」混为一谈。
+
+帧率与帧阶段：TPS 低有两种完全不同的原因 —— 每 tick 太慢，或者帧率太低
+导致每帧能跑的 tick 被砍。只看 msPerTick 会把后者误判成前者。
+所以本 mod 同时把每帧拆成十个阶段，剩下没测到的「未测部分」就是
+引擎渲染、Present、显存换页等待 —— 它是判断「GPU 卡还是 CPU 卡」的唯一依据。
+
+判读规则：帧率 ≥30 时对 TPS 毫无影响，可专心优化 msPerTick；
+低于 30 说明每帧 tick 数已被上限夹住，TPS 正随帧率一起下降，且不可补偿。
+
+
+════════ 它不做什么 ════════
+
+只读观测。不改游戏行为、不写存档、不改任何 def、不替换任何贴图。
+卸掉 mod 后存档完全不受影响。
+
+
+════════ 开销提醒 ════════
+
+探针本身有成本，实测约 0.6 ms/tick，占被测时间 12% 左右。
+它是一次性诊断工具，不是常驻优化 mod。定位到瓶颈后请在模组设置里关掉，
+或直接停用本 mod —— 报告里会单独列出探针自身占了多少，方便你扣除。
+
+
+════════ 对比建议 ════════
+
+· 放在模组列表靠后位置，这样能统计到其他 mod 补丁带来的开销。
+· 对比两次改动的效果时，务必保持相同的倍速、相同的观察视角、相同的采样率，
+  否则数字不可比。
+· 「50 个殖民者不卡而我卡」这类问题，答案通常不在人物身上 —— 报告里的
+  建筑层与组件层按 mod 分组后，往往能一眼看出是哪个内容 mod 在拖。
+</description>
+</ModMetaData>

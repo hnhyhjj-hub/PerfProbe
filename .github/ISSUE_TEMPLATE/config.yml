@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 想看怎么读报告 / 自己分析
+    url: https://github.com/hnhyhjj-hub/PerfProbe/blob/main/docs/AI-ANALYSIS-GUIDE.md
+    about: 判读指南——哪些数不能相加、常见误判、怎么把文件丢给 AI。
+  - name: 编译 / 发布问题
+    url: https://github.com/hnhyhjj-hub/PerfProbe/blob/main/docs/BUILD.md
+    about: 先看 BUILD.md 与 PUBLISH.md，多半已经写过。

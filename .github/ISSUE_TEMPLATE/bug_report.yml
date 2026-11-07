@@ -1,0 +1,98 @@
+name: 反馈问题（附反馈包）
+description: 性能数据不对、图表空白、报错、游戏崩溃——请附上「导出反馈包」生成的 zip
+title: "[反馈] "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 先做这一步
+
+        游戏内 **选项 → 模组设置 → PerfProbe** → 点「**停止并输出汇总**」，再点「**导出反馈包**」。
+        会生成 `PerfProbe-feedback-<日期>-<时间>.zip`，**直接把这个 zip 拖进下面最后一个输入框**。
+
+        包里已经含 `brief.md` / `summary.md` / `index.json` / `schema.md` / `probe.log` / 裁剪后的 `Player.log` / `ModsConfig.xml`，
+        不含硬件信息，路径里的用户名已替换成 `<用户名>`。
+
+        > 没有 summary 的包只含逐窗口 jsonl，信息量差一个数量级。
+        > 如果 zip 超过 25 MB 传不上来，请**不要**拆包，改用网盘链接贴到下面。
+
+  - type: checkboxes
+    id: prep
+    attributes:
+      label: 提交前自查
+      options:
+        - label: 已点「停止并输出汇总」，包里含 `summary.md`
+          required: true
+        - label: 已确认 `About.xml` 里的版本与 issue 里填的一致
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: PerfProbe 版本
+      description: 设置面板顶部或 `About.xml` 的 `<modVersion>`，例如 `1.4.0`
+      placeholder: 1.4.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: gameversion
+    attributes:
+      label: 游戏版本
+      options:
+        - 1.7（Waylith）
+        - 1.6
+        - 其他（下面说明）
+    validations:
+      required: true
+
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: 问题类型
+      multiple: true
+      options:
+        - 探针本身有开销 / 掉帧
+        - 报告里数字明显不对（归因到错的对象、时间加起来超过 100%）
+        - summary / index / jsonl 没生成或为空
+        - 点导出反馈包没反应或 zip 损坏
+        - 设置面板打不开 / 选项不生效
+        - 报错日志（红字）
+        - 游戏崩溃
+        - 1.6 下不工作
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么
+      description: 你在做什么、期望什么、实际什么。有具体数字或截图更好。
+      placeholder: |
+        开了 300 个 mod，6 倍速跑 10 分钟。
+        预期 summary 里 building 类占大头，实际几乎全是 other。
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 勾选启用采集，采样率 K=1
+        2. 点开始被动采集
+        3. 6 倍速跑 5 分钟
+        4. 点停止并输出汇总
+    validations:
+      required: false
+
+  - type: textarea
+    id: pack
+    attributes:
+      label: 反馈包
+      description: 把 `PerfProbe-feedback-*.zip` 拖进来（或贴网盘链接）。只贴摘要不加包的问题往往无法定位。
+      placeholder: 拖入 zip，或贴链接
+    validations:
+      required: true
