@@ -370,7 +370,10 @@ function Invoke-Check {
     # $env:DSH_HOME 可能为空（例如从 bash 里转调 PowerShell 时没继承该变量），
     # 直接 Join-Path 会抛 "参数 Path 为空"。这里先判空，缺 rg 时退到 PowerShell 自带匹配。
     $rg = if ($env:DSH_HOME) { Join-Path $env:DSH_HOME '.desktop-bin\rg.exe' } else { '' }
-    $patterns = @('Users\ASUS', 'Program Files', 'RimModManager', 'E:\', 'D:\')
+    # 用户名不写死：本仓库是公开的，写死等于把开发机的账户名一并发布。
+    # 取运行时账户名，其他项是「具体到这台机器」的安装目录与盘符。
+    $userSeg = if ($env:USERNAME) { "Users\$env:USERNAME" } else { 'Users\' }
+    $patterns = @($userSeg, 'Program Files', 'RimModManager', 'E:\', 'D:\')
     if ($rg -and (Test-Path -LiteralPath $rg) -and (Test-Path -LiteralPath $PubRoot)) {
         $args2 = @('-l', '-F') + ($patterns | ForEach-Object { @('-e', $_) }) + @($PubRoot, '--max-filesize', '512K', '--no-messages')
         $found = & $rg @args2 2>$null

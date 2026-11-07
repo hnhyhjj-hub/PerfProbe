@@ -96,7 +96,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\pack.ps1 restore
 | 程序集目录干净 | `1.7\Assemblies\` 与 `1.6\Assemblies\` 都只有 `.dll` + `.json`；且 1.6 侧**不能有** `deps.json` |
 | dll 无本机路径 | 两份 dll 的 ASCII 串都匹配不到 `X:\\` |
 | **BCL 引用不串版** | 1.6 那份必须含 `mscorlib`，1.7 那份必须不含。反了进游戏就是 `System.BadImageFormatException` |
-| 发布件无本机路径 | 匹配不到 `Users\ASUS` / `Program Files` / `RimModManager` / `E:\` / `D:\`（不查 `AppData` 与 `C:\Users\` 这类平台通用写法，它们本就该出现在文档里） |
+| 发布件无本机路径 | 匹配不到当前 Windows 用户名（`Users\<用户名>`）/ `Program Files` / `<开发工具目录名>` / 任一盘符绝对路径（不查 `AppData` 与 `C:\Users\` 这类平台通用写法，它们本就该出现在文档里） |
 | packageId 冲突状态 | 两份都有 About 时提示先跑 `publish` |
 
 ## 发布包里为什么带 `docs\`
