@@ -88,6 +88,28 @@ function Copy-Tree([string]$Src, [string]$Dst) {
     return $n
 }
 
+# 版本段的 key 归一化与解析规则都对齐 Verse.ModLoadFolders / RimWorld.VersionControl：
+#   key = childNode.Name.ToLower()，去掉前导 'v'（LoadDataFromXmlCustom）
+#   可比较当且仅当 split('.') 至少两段且前两段是整数（VersionControl.TryParseVersionString）
+function ConvertTo-ComparableVersion([string]$Str) {
+    if ([string]::IsNullOrEmpty($Str)) { return $null }
+    $parts = $Str.Split('.')
+    if ($parts.Length -lt 2) { return $null }
+    $a = 0; $b = 0
+    if (-not [int]::TryParse($parts[0], [ref]$a)) { return $null }
+    if (-not [int]::TryParse($parts[1], [ref]$b)) { return $null }
+    return [version]::new($a, $b)
+}
+
+# VersionControl.IsWellFormattedVersionString：恰好两段，且两段都是整数。
+function Test-WellFormattedVersion([string]$Str) {
+    if ([string]::IsNullOrEmpty($Str)) { return $false }
+    $parts = $Str.Split('.')
+    if ($parts.Length -ne 2) { return $false }
+    $a = 0; $b = 0
+    return ([int]::TryParse($parts[0], [ref]$a) -and [int]::TryParse($parts[1], [ref]$b))
+}
+
 function Invoke-Pack {
     Write-Step "重建发布目录 $PubRoot"
     if (Test-Path -LiteralPath $PubRoot) {
@@ -201,6 +223,104 @@ function Invoke-Check {
                 $fail++
             }
         }
+
+    Write-Step '3b) LoadFolders.xml 对齐 Verse.ModLoadFolders 的六条上传前校验'
+    # 游戏在「上传到创意工坊」前会跑 ModLoadFolders.GetIssueList，任一条命中就弹框拦截。
+    # 这里逐条复现，让 pack 阶段就报出来，不用等游戏弹窗。
+    $lfPath = Join-Path $PubRoot 'LoadFolders.xml'
+    if (-not (Test-Path -LiteralPath $lfPath)) { $lfPath = Join-Path $DevRoot 'LoadFolders.xml' }
+    if (Test-Path -LiteralPath $lfPath) {
+        $lfFailBefore = $fail
+        try {
+            $lfXml = [xml](Get-Content -LiteralPath $lfPath -Raw -Encoding UTF8)
+        } catch {
+            Write-Bad "LoadFolders.xml 无法解析：$($_.Exception.Message)"; $fail++; $lfXml = $null
+        }
+        if ($lfXml) {
+            # supportedVersions 用于最后一条校验；缺该字段时游戏侧的集合为空，导致每段都报错。
+            $aboutXml = Join-Path $PubRoot 'About\About.xml'
+            if (-not (Test-Path -LiteralPath $aboutXml)) { $aboutXml = Join-Path $AboutOff 'About.xml' }
+            $supported = @()
+            if (Test-Path -LiteralPath $aboutXml) {
+                $am = [xml](Get-Content -LiteralPath $aboutXml -Raw -Encoding UTF8)
+                $supported = @($am.ModMetaData.supportedVersions.li | Where-Object { $_ } | ForEach-Object { "$_".Trim() })
+            }
+
+            $sections = @()
+            foreach ($node in $lfXml.loadFolders.ChildNodes) {
+                if ($node.NodeType -ne 'Element') { continue }
+                $key = $node.Name.ToLower()
+                if ($key.StartsWith('v')) { $key = $key.Substring(1) }
+                $sections += , @{ Key = $key; Node = $node }
+            }
+
+            if ($sections.Count -eq 0) {
+                Write-Bad 'LoadFolders.xml 里没有任何版本段'; $fail++
+            }
+
+            $prevKey = $null
+            $prevVer = $null
+            for ($si = 0; $si -lt $sections.Count; $si++) {
+                $key = $sections[$si].Key
+                $node = $sections[$si].Node
+
+                # 1) ModLoadFolderListEmpty
+                $folders = @($node.ChildNodes | Where-Object { $_.NodeType -eq 'Element' })
+                if ($folders.Count -eq 0) { Write-Bad "v$key 没列任何文件夹（ModLoadFolderListEmpty）"; $fail++ }
+
+                # 2) ModLoadFolderRepeatingFolder —— 游戏按 LoadFolder 整体判重，含三个 IfMod* 属性
+                $seen = @{}
+                foreach ($f in $folders) {
+                    $sig = @(
+                        $(if ($f.InnerText -in @('/', '\')) { '' } else { $f.InnerText }),
+                        $f.GetAttribute('IfModActive'),
+                        $f.GetAttribute('IfModActiveAll'),
+                        $f.GetAttribute('IfModNotActive')
+                    ) -join '|'
+                    if ($seen.ContainsKey($sig)) { Write-Bad "v$key 里重复列了同一文件夹 '$($f.InnerText)'（ModLoadFolderRepeatingFolder）"; $fail++ }
+                    else { $seen[$sig] = $true }
+                }
+
+                # 3) ModLoadFolderMalformedVersion + 4) ModLoadFolderDefaultDeprecated
+                if ($key -eq 'default') {
+                    Write-Bad "用了 default 段，该写法已弃用（ModLoadFolderDefaultDeprecated）"; $fail++
+                } elseif (-not (Test-WellFormattedVersion $key)) {
+                    Write-Bad "v$key 版本名格式不合法，须为两段整数如 v1.7（ModLoadFolderMalformedVersion）"; $fail++
+                }
+
+                # 5) ModLoadFolderOutOfOrder —— 游戏按书写顺序比较相邻两段
+                $ver = ConvertTo-ComparableVersion $key
+                if ($null -ne $prevVer -and $null -ne $ver -and $ver -lt $prevVer) {
+                    Write-Bad "v$key 写在 v$prevKey 后面，版本段必须按升序排列（ModLoadFolderOutOfOrder）"; $fail++
+                }
+
+                # 6) ModLoadFolderDoesntExist —— '/' 在游戏里被换成空串，指 mod 根目录
+                foreach ($f in $folders) {
+                    $name = if ($f.InnerText -in @('/', '\')) { '' } else { $f.InnerText }
+                    if (-not (Test-Path -LiteralPath (Join-Path $PubRoot $name) -PathType Container)) {
+                        Write-Bad "v$key 列的文件夹 '$($f.InnerText)' 在发布目录里不存在（ModLoadFolderDoesntExist）"; $fail++
+                    }
+                }
+
+                # 7) ModLoadFolderDefinesUnsupportedGameVersion
+                if ($null -ne $ver -and $supported.Count -gt 0) {
+                    $matched = $false
+                    foreach ($s in $supported) {
+                        $sv = ConvertTo-ComparableVersion $s
+                        if ($null -ne $sv -and $sv.Major -eq $ver.Major -and $sv.Minor -eq $ver.Minor) { $matched = $true; break }
+                    }
+                    if (-not $matched) { Write-Bad "v$key 不在 About.xml 的 supportedVersions 里（ModLoadFolderDefinesUnsupportedGameVersion）"; $fail++ }
+                }
+
+                $prevKey = $key
+                $prevVer = if ($null -ne $ver) { $ver } else { $prevVer }
+            }
+
+            if ($fail -eq $lfFailBefore) {
+                Write-Ok "版本段 $(($sections | ForEach-Object { 'v' + $_.Key }) -join ' -> ') 全部合规"
+            }
+        }
+    } else { Write-Note '跳过（找不到 LoadFolders.xml）' }
 
     Write-Step '4) 程序集目录只有 dll + deps.json（1.7 与 1.6 各一份）'
     # 1.6 那份是 net472 产物，不该带 deps.json：老版本读不懂 .NETCoreApp 的依赖清单。
