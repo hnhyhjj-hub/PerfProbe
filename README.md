@@ -1,5 +1,7 @@
 # PerfProbe
 
+本 mod 由 DeepSeek V4.1 Flash 辅助制作，在作者本人游戏环境中经过多轮实测。
+
 面向 RimWorld 1.7（Waylith）的**零侵入运行期性能探针**。
 
 它回答两个问题：这个 tick 的耗时花在谁身上，以及帧率为什么上不去。
@@ -7,6 +9,8 @@
 
 > 不是实时曲线工具。目标是**把运行期开销落成机器可读的日志**，
 > 让 AI 能直接回答「哪栋建筑 / 哪类物品 / 哪个人物 / 哪个事件 / 哪个模组在吃性能」。
+
+仓库：<https://github.com/hnhyhjj-hub/PerfProbe>
 
 ---
 
@@ -35,18 +39,7 @@
 
 ---
 
-## 安装
-
-从 [Releases](https://github.com/hnhyhjj-hub/PerfProbe/releases/latest) 下载 `PerfProbe-<版本>.zip`，解压到 `RimWorld/Mods/`，
-确保目录结构是 `Mods/PerfProbe/About/About.xml`。
-
-依赖 [Harmony](https://github.com/pardeike/HarmonyRimWorld)（工坊 packageId `brrainz.harmony`）。
-
-> **直接 clone 本仓库的话**，元数据目录叫 `About.off` 而不是 `About` ——
-> 这是发布流程的需要（见[发布](#发布)：开发目录与发布目录 packageId 相同会互相冲突，
-> 开发侧必须让 `About` 缺位）。想直接放进 `Mods/` 玩，把 `About.off` 改名成 `About` 即可。
-
-### 版本支持
+## 版本支持
 
 | 版本 | 状态 |
 |---|---|
@@ -94,53 +87,11 @@
 
 ---
 
-## 从源码构建
-
-见 [`docs/BUILD.md`](docs/BUILD.md)。要点：
-
-- 需要 **dotnet 10**（1.7 目标 `net10.0`）与 **.NET Framework 4.7.2 参考程序集**（1.6 目标 `net472`）。
-- `Source/PerfProbe/PerfProbe.csproj` 的路径属性可被环境变量或命令行覆盖：
-  `RimWorldDir` / `WorkshopRoot` / `Harmony17Dir` / `Harmony16Dir` / `Ref16Dir`。换机器通常只改 `RimWorldDir`，
-  其余四项从它派生（工坊根是 `steamapps\workshop\content\294100`，**不在** `common` 下面）。
-
-```powershell
-cd Source/PerfProbe
-dotnet build -c Release -v q --nologo
-```
-
-一次 build 出两份：`net10.0` → `1.7/Assemblies/PerfProbe.dll`，`net472` → `1.6/Assemblies/PerfProbe.dll`。
-
-> 若日志写着 `0 个警告 0 个错误` 但 `PerfProbe.dll` 没更新，是编译服务器进程被环境限制杀掉了
-> （日志里会有 `MSB5021: 终止任务可执行文件"csc"`）。补上
-> `--disable-build-servers -m:1 -p:UseSharedCompilation=false -nodeReuse:false` 即可，
-> 判断成败看产物时间戳，不看日志里的错误计数。
-
-> `Source/refs/`（1.6 参考程序集）**不随仓库分发**，需自备；只编 1.7 时可跳过 `net472` 目标。
-
----
-
-## 发布
-
-工坊上传读的是 **mod 根目录本身**（`Verse.Steam.Workshop.BakeAndUpload` → `SetItemContent(hook.Directory.FullName)`），
-Steam 端整目录打包，**没有白名单，`.gitignore` 无效**。所以开发目录与发布目录必须分离：
-
-```powershell
-.\tools\pack.ps1 pack      # 重建 Mods\PerfProbe-Publish\ + 8 项自检
-.\tools\pack.ps1 publish   # 再把开发目录 About 改名 About.off，让游戏只认发布目录
-.\tools\pack.ps1 restore   # 上传完恢复
-```
-
-详见 [`docs/PUBLISH.md`](docs/PUBLISH.md)。
-
----
-
 ## 文档
 
 | 文件 | 内容 |
 |---|---|
 | [`PLAN.md`](PLAN.md) | 实施方案与关键设计决策（计时边界、速度档隔离、抽样、归因回退） |
-| [`docs/BUILD.md`](docs/BUILD.md) | 编译环境、引用程序集、1.6/1.7 差异与踩过的坑 |
-| [`docs/PUBLISH.md`](docs/PUBLISH.md) | 工坊发布流程、目录分离、packageId 冲突处理 |
 | [`docs/schema.md`](docs/schema.md) | 产物字段口径 |
 | [`docs/AI-ANALYSIS-GUIDE.md`](docs/AI-ANALYSIS-GUIDE.md) | 判读指南：怎么读、哪些数不能相加、常见误判 |
 | [`docs/MECH-PERF-REPORT.md`](docs/MECH-PERF-REPORT.md) | 实测性能报告样例 |
