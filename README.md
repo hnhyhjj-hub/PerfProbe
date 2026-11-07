@@ -37,7 +37,7 @@
 
 ## 安装
 
-从 [Releases](../../releases) 下载 zip，解压到 `RimWorld/Mods/`，
+从 [Releases](../../releases/latest) 下载 `PerfProbe-<版本>.zip`，解压到 `RimWorld/Mods/`，
 确保目录结构是 `Mods/PerfProbe/About/About.xml`。
 
 依赖 [Harmony](https://github.com/pardeike/HarmonyRimWorld)（工坊 packageId `brrainz.harmony`）。
@@ -99,8 +99,9 @@
 见 [`docs/BUILD.md`](docs/BUILD.md)。要点：
 
 - 需要 **dotnet 10**（1.7 目标 `net10.0`）与 **.NET Framework 4.7.2 参考程序集**（1.6 目标 `net472`）。
-- `Source/PerfProbe/PerfProbe.csproj` 的四个路径属性可被环境变量或命令行覆盖：
-  `RimWorldDir` / `Harmony17Dir` / `Harmony16Dir` / `Ref16Dir`。换机器只改这四个。
+- `Source/PerfProbe/PerfProbe.csproj` 的路径属性可被环境变量或命令行覆盖：
+  `RimWorldDir` / `WorkshopRoot` / `Harmony17Dir` / `Harmony16Dir` / `Ref16Dir`。换机器通常只改 `RimWorldDir`，
+  其余四项从它派生（工坊根是 `steamapps\workshop\content\294100`，**不在** `common` 下面）。
 
 ```powershell
 cd Source/PerfProbe
@@ -108,6 +109,11 @@ dotnet build -c Release -v q --nologo
 ```
 
 一次 build 出两份：`net10.0` → `1.7/Assemblies/PerfProbe.dll`，`net472` → `1.6/Assemblies/PerfProbe.dll`。
+
+> 若日志写着 `0 个警告 0 个错误` 但 `PerfProbe.dll` 没更新，是编译服务器进程被环境限制杀掉了
+> （日志里会有 `MSB5021: 终止任务可执行文件"csc"`）。补上
+> `--disable-build-servers -m:1 -p:UseSharedCompilation=false -nodeReuse:false` 即可，
+> 判断成败看产物时间戳，不看日志里的错误计数。
 
 > `Source/refs/`（1.6 参考程序集）**不随仓库分发**，需自备；只编 1.7 时可跳过 `net472` 目标。
 
