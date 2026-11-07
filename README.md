@@ -12,7 +12,7 @@
 
 ## 反馈问题
 
-**优先走 [Issues](../../issues/new/choose)。**
+**优先走 [Issues](https://github.com/hnhyhjj-hub/PerfProbe/issues/new/choose)。**
 
 出问题时先在设置面板点「导出反馈包」，会生成
 `PerfProbe-feedback-<日期>-<时间>.zip`，把它拖进 Issue 即可。包里已经收齐排查需要的全部信息：
@@ -37,7 +37,7 @@
 
 ## 安装
 
-从 [Releases](../../releases/latest) 下载 `PerfProbe-<版本>.zip`，解压到 `RimWorld/Mods/`，
+从 [Releases](https://github.com/hnhyhjj-hub/PerfProbe/releases/latest) 下载 `PerfProbe-<版本>.zip`，解压到 `RimWorld/Mods/`，
 确保目录结构是 `Mods/PerfProbe/About/About.xml`。
 
 依赖 [Harmony](https://github.com/pardeike/HarmonyRimWorld)（工坊 packageId `brrainz.harmony`）。
